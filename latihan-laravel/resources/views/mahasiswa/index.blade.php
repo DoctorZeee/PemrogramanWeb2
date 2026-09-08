@@ -1,7 +1,15 @@
 @extends('layouts.app')
+
 @section('judul', 'Daftar Mahasiswa')
+
 @section('konten')
     <h1 class="h3 mb-4">Daftar Mahasiswa</h1>
+
+    <x-kartu-info judul="Informasi">
+        Data pada halaman ini masih berupa array statis. Pada modul
+        berikutnya data akan diambil dari basis data.
+    </x-kartu-info>
+
     <table class="table table-bordered bg-white">
         <thead>
             <tr>
@@ -12,7 +20,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($daftarMahasiswa as $mahasiswa)
+@forelse ($daftarMahasiswa as $mahasiswa)
                 <tr>
                     <td>{{ $mahasiswa['nim'] }}</td>
                     <td>{{ $mahasiswa['nama'] }}</td>
@@ -23,11 +31,11 @@
                         </a>
                     </td>
                 </tr>
-            @empty
+@empty
                 <tr>
                     <td colspan="4">Data belum tersedia</td>
                 </tr>
-            @endforelse
+@endforelse
         </tbody>
     </table>
 @endsection
