@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MahasiswaController;
 use App\Http\Controllers\MatakuliahController;
+use App\Http\Controllers\MahasiswaWebController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -44,6 +45,11 @@ Route::get('/semester/{angka}', function (int $angka) {
     return 'Semester ke ' . $angka;
 })->whereNumber('angka');
 
+Route::get('/mahasiswa-data', [MahasiswaWebController::class,
+'index'])->name('mahasiswa.data');
 
+Route::get('/mahasiswa-data/top-ipk', [MahasiswaWebController::class,
+'topIpk'])->name('mahasiswa.top-ipk');
 
-
+Route::get('/mahasiswa-data/{mahasiswa}', [MahasiswaWebController::class,
+'show'])->name('mahasiswa.show');
