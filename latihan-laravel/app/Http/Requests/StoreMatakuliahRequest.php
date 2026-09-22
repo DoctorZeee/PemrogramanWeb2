@@ -17,6 +17,7 @@ class StoreMatakuliahRequest extends FormRequest
             'kode' => ['required', 'string', 'max:15', 'unique:matakuliahs,kode'],
             'nama' => ['required', 'string', 'max:100'],
             'sks' => ['required', 'integer', 'min:1', 'max:6'],
+            'semester' => ['sometimes', 'integer', 'min:1', 'max:8'],
         ];
     }
 

@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMatakuliahRequest;
 use App\Http\Requests\UpdateMatakuliahRequest;
 use App\Http\Resources\MatakuliahResource;
-use App\Models\Matakuliah;
+use App\Models\MataKuliah;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,7 +14,7 @@ class MatakuliahController extends Controller
 {
     public function index(Request $request)
     {
-        $kueri = Matakuliah::query();
+        $kueri = MataKuliah::query();
 
         if ($request->filled('cari')) {
             $kataKunci = $request->query('cari');
@@ -24,6 +24,10 @@ class MatakuliahController extends Controller
             });
         }
 
+        if ($request->filled('semester')) {
+            $kueri->where('semester', $request->integer('semester'));
+        }
+
         $perHalaman = min($request->integer('per_halaman', 10), 100);
 
         return MatakuliahResource::collection($kueri->paginate($perHalaman));
@@ -31,7 +35,7 @@ class MatakuliahController extends Controller
 
     public function store(StoreMatakuliahRequest $request): JsonResponse
     {
-        $matakuliah = Matakuliah::create($request->validated());
+        $matakuliah = MataKuliah::create($request->validated());
 
         return response()->json([
             'sukses' => true,
@@ -40,7 +44,7 @@ class MatakuliahController extends Controller
         ], 201);
     }
 
-    public function show(Matakuliah $matakuliah): JsonResponse
+    public function show(MataKuliah $matakuliah): JsonResponse
     {
         return response()->json([
             'sukses' => true,
@@ -48,7 +52,7 @@ class MatakuliahController extends Controller
         ]);
     }
 
-    public function update(UpdateMatakuliahRequest $request, Matakuliah $matakuliah): JsonResponse
+    public function update(UpdateMatakuliahRequest $request, MataKuliah $matakuliah): JsonResponse
     {
         $matakuliah->update($request->validated());
 
@@ -59,7 +63,7 @@ class MatakuliahController extends Controller
         ]);
     }
 
-    public function destroy(Matakuliah $matakuliah): JsonResponse
+    public function destroy(MataKuliah $matakuliah): JsonResponse
     {
         $matakuliah->delete();
 

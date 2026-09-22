@@ -40,7 +40,7 @@ class MahasiswaController extends Controller
         }
 
         $perHalaman = min($request->integer('per_halaman', 10), 100);
-        $data = MahasiswaResource::collection($kueri->paginate($perHalaman));
+        $paginator = $kueri->paginate($perHalaman);
 
         if ($request->filled('fields')) {
             $kolomFieldDiizinkan = ['id', 'nim', 'nama', 'email', 'angkatan', 'ipk', 'aktif'];
@@ -49,12 +49,24 @@ class MahasiswaController extends Controller
                 $kolomFieldDiizinkan
             );
 
-            $data->collection->transform(function ($item) use ($kolomDiminta) {
-                return collect($item->resolve())->only($kolomDiminta);
+            $items = collect($paginator->items())->map(function ($item) use ($kolomDiminta) {
+                return collect((new MahasiswaResource($item))->resolve())->only($kolomDiminta);
             });
+
+            return response()->json([
+                'data' => $items,
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'from' => $paginator->firstItem(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'to' => $paginator->lastItem(),
+                    'total' => $paginator->total(),
+                ],
+            ]);
         }
 
-        return $data;
+        return MahasiswaResource::collection($paginator);
     }
 
     public function store(StoreMahasiswaRequest $request): JsonResponse
