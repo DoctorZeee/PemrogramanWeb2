@@ -98,8 +98,11 @@ func Simpan(mahasiswa *model.Mahasiswa) error {
 	return config.DB.Create(mahasiswa).Error
 }
 
+// Perbarui menyimpan semua kolom mahasiswa. Omit("ProgramStudi") mencegah Save
+// menulis ulang relasi hasil Preload, yang jika tidak dihilangkan akan
+// mengembalikan program_studi_id ke nilai lama.
 func Perbarui(mahasiswa *model.Mahasiswa) error {
-	return config.DB.Save(mahasiswa).Error
+	return config.DB.Omit("ProgramStudi").Save(mahasiswa).Error
 }
 
 func Hapus(mahasiswa *model.Mahasiswa) error {

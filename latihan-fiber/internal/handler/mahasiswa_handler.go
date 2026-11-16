@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -9,6 +10,7 @@ import (
 
 	"latihan-fiber/internal/model"
 	"latihan-fiber/internal/repository"
+	"latihan-fiber/internal/validasi"
 )
 
 func DaftarMahasiswa(c fiber.Ctx) error {
@@ -32,6 +34,7 @@ func DaftarMahasiswa(c fiber.Ctx) error {
 
 	daftar, total, err := repository.Ambil(filter)
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
@@ -63,6 +66,7 @@ func DetailMahasiswa(c fiber.Ctx) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Mahasiswa tidak ditemukan")
 		}
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
@@ -77,6 +81,10 @@ func BuatMahasiswa(c fiber.Ctx) error {
 	err := c.Bind().Body(&permintaan)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Format body tidak valid")
+	}
+
+	if galat := validasi.Periksa(permintaan); galat != nil {
+		return tolakValidasi(c, galat)
 	}
 
 	aktif := true
@@ -95,8 +103,15 @@ func BuatMahasiswa(c fiber.Ctx) error {
 	}
 
 	err = repository.Simpan(&mahasiswa)
-	if err != nil {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "Gagal menyimpan data, periksa keunikan NIM dan email")
+	}
+	if errors.Is(err, gorm.ErrForeignKeyViolated) {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "Program studi tidak ditemukan")
+	}
+	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal menyimpan data")
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -106,15 +121,12 @@ func BuatMahasiswa(c fiber.Ctx) error {
 	})
 }
 
+// PerbaruiMahasiswa melayani PUT (penggantian penuh): body divalidasi dengan
+// aturan yang sama seperti pembuatan.
 func PerbaruiMahasiswa(c fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "ID harus berupa angka")
-	}
-
-	mahasiswa, err := repository.AmbilPerId(uint(id))
-	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "Mahasiswa tidak ditemukan")
 	}
 
 	var permintaan PermintaanMahasiswa
@@ -123,28 +135,45 @@ func PerbaruiMahasiswa(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Format body tidak valid")
 	}
 
-	if permintaan.Nama != "" {
-		mahasiswa.Nama = permintaan.Nama
+	if galat := validasi.Periksa(permintaan); galat != nil {
+		return tolakValidasi(c, galat)
 	}
-	if permintaan.Email != "" {
-		mahasiswa.Email = permintaan.Email
+
+	mahasiswa, err := repository.AmbilPerId(uint(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Mahasiswa tidak ditemukan")
+		}
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
-	if permintaan.Angkatan > 0 {
-		mahasiswa.Angkatan = permintaan.Angkatan
-	}
-	if permintaan.Ipk > 0 {
-		mahasiswa.Ipk = permintaan.Ipk
-	}
-	if permintaan.ProgramStudiID > 0 {
-		mahasiswa.ProgramStudiID = permintaan.ProgramStudiID
-	}
+
+	mahasiswa.ProgramStudiID = permintaan.ProgramStudiID
+	mahasiswa.Nim = permintaan.Nim
+	mahasiswa.Nama = permintaan.Nama
+	mahasiswa.Email = permintaan.Email
+	mahasiswa.Angkatan = permintaan.Angkatan
+	mahasiswa.Ipk = permintaan.Ipk
 	if permintaan.Aktif != nil {
 		mahasiswa.Aktif = *permintaan.Aktif
 	}
 
 	err = repository.Perbarui(&mahasiswa)
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "Gagal memperbarui data, periksa keunikan NIM dan email")
+	}
+	if errors.Is(err, gorm.ErrForeignKeyViolated) {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "Program studi tidak ditemukan")
+	}
 	if err != nil {
-		return fiber.NewError(fiber.StatusUnprocessableEntity, "Gagal memperbarui data")
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal memperbarui data")
+	}
+
+	// Muat ulang agar relasi program_studi pada respons sesuai ID yang baru.
+	mahasiswa, err = repository.AmbilPerId(uint(id))
+	if err != nil {
+		return err
 	}
 
 	return c.JSON(fiber.Map{
@@ -162,11 +191,16 @@ func HapusMahasiswa(c fiber.Ctx) error {
 
 	mahasiswa, err := repository.AmbilPerId(uint(id))
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "Mahasiswa tidak ditemukan")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Mahasiswa tidak ditemukan")
+		}
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
 	err = repository.Hapus(&mahasiswa)
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal menghapus data")
 	}
 
@@ -199,6 +233,7 @@ func DaftarMahasiswaTerhapus(c fiber.Ctx) error {
 
 	daftar, total, err := repository.AmbilTerhapus(filter)
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
@@ -229,6 +264,7 @@ func PulihkanMahasiswa(c fiber.Ctx) error {
 
 	terpulihkan, err := repository.Pulihkan(uint(id))
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal memulihkan data")
 	}
 	if terpulihkan == 0 {
@@ -237,6 +273,7 @@ func PulihkanMahasiswa(c fiber.Ctx) error {
 
 	mahasiswa, err := repository.AmbilPerId(uint(id))
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 

@@ -7,7 +7,7 @@ import (
 )
 
 func Migrasi() {
-	err := DB.AutoMigrate(&model.ProgramStudi{}, &model.Mahasiswa{}, &model.MataKuliah{})
+	err := DB.AutoMigrate(&model.ProgramStudi{}, &model.Mahasiswa{}, &model.MataKuliah{}, &model.Pengguna{}, &model.DaftarHitamToken{})
 	if err != nil {
 		log.Fatal("Gagal menjalankan migrasi: ", err)
 	}
@@ -27,7 +27,10 @@ func DataAwal() {
 		{Kode: "IF", Nama: "Teknik Informatika", Jenjang: "S1"},
 		{Kode: "TE", Nama: "Teknik Elektro", Jenjang: "S1"},
 	}
-	DB.Create(&daftar)
+	err := DB.Create(&daftar).Error
+	if err != nil {
+		log.Fatal("Gagal membuat data awal program studi: ", err)
+	}
 
 	log.Println("Data awal program studi dibuat")
 }

@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"errors"
+	"log"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
+	"gorm.io/gorm"
 
 	"latihan-fiber/internal/model"
 	"latihan-fiber/internal/repository"
+	"latihan-fiber/internal/validasi"
 )
 
 // CRUD matakuliah (Tugas 1), mengikuti pola repository dan handler mahasiswa.
@@ -31,6 +35,7 @@ func DaftarMataKuliah(c fiber.Ctx) error {
 
 	daftar, total, err := repository.AmbilMataKuliah(filter)
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
@@ -59,7 +64,11 @@ func DetailMataKuliah(c fiber.Ctx) error {
 
 	matakuliah, err := repository.AmbilMataKuliahPerId(uint(id))
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "Matakuliah tidak ditemukan")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Matakuliah tidak ditemukan")
+		}
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
 	return c.JSON(fiber.Map{
@@ -75,6 +84,10 @@ func BuatMataKuliah(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Format body tidak valid")
 	}
 
+	if galat := validasi.Periksa(permintaan); galat != nil {
+		return tolakValidasi(c, galat)
+	}
+
 	matakuliah := model.MataKuliah{
 		Kode:     permintaan.Kode,
 		Nama:     permintaan.Nama,
@@ -83,8 +96,12 @@ func BuatMataKuliah(c fiber.Ctx) error {
 	}
 
 	err = repository.SimpanMataKuliah(&matakuliah)
-	if err != nil {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "Gagal menyimpan data, periksa keunikan kode")
+	}
+	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal menyimpan data")
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -102,7 +119,11 @@ func PerbaruiMataKuliah(c fiber.Ctx) error {
 
 	matakuliah, err := repository.AmbilMataKuliahPerId(uint(id))
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "Matakuliah tidak ditemukan")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Matakuliah tidak ditemukan")
+		}
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
 	var permintaan PermintaanMataKuliah
@@ -111,22 +132,22 @@ func PerbaruiMataKuliah(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Format body tidak valid")
 	}
 
-	if permintaan.Kode != "" {
-		matakuliah.Kode = permintaan.Kode
-	}
-	if permintaan.Nama != "" {
-		matakuliah.Nama = permintaan.Nama
-	}
-	if permintaan.Sks > 0 {
-		matakuliah.Sks = permintaan.Sks
-	}
-	if permintaan.Semester > 0 {
-		matakuliah.Semester = permintaan.Semester
+	if galat := validasi.Periksa(permintaan); galat != nil {
+		return tolakValidasi(c, galat)
 	}
 
+	matakuliah.Kode = permintaan.Kode
+	matakuliah.Nama = permintaan.Nama
+	matakuliah.Sks = permintaan.Sks
+	matakuliah.Semester = permintaan.Semester
+
 	err = repository.PerbaruiMataKuliah(&matakuliah)
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "Gagal memperbarui data, periksa keunikan kode")
+	}
 	if err != nil {
-		return fiber.NewError(fiber.StatusUnprocessableEntity, "Gagal memperbarui data")
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal memperbarui data")
 	}
 
 	return c.JSON(fiber.Map{
@@ -144,11 +165,16 @@ func HapusMataKuliah(c fiber.Ctx) error {
 
 	matakuliah, err := repository.AmbilMataKuliahPerId(uint(id))
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "Matakuliah tidak ditemukan")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Matakuliah tidak ditemukan")
+		}
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Gagal mengambil data")
 	}
 
 	err = repository.HapusMataKuliah(&matakuliah)
 	if err != nil {
+		log.Printf("Galat %s %s: %v", c.Method(), c.Path(), err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Gagal menghapus data")
 	}
 
