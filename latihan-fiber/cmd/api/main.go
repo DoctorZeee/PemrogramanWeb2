@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	recoverer "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
@@ -29,6 +30,15 @@ func main() {
 	app.Use(requestid.New())
 	app.Use(logger.New())
 	app.Use(middleware.WaktuProses())
+
+	// Modul 9: CORS. Frontend Vite (http://localhost:5173) berbeda origin
+	// dengan API ini (http://localhost:3000); tanpa header Allow-Origin,
+	// peramban memblokir semua respons. Preflight OPTIONS dijawab di sini.
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:5173"},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Authorization", "Origin", "Content-Type", "Accept"},
+	}))
 	router.Daftarkan(app, konf)
 	app.Use(func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
