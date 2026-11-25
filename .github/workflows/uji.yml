@@ -1,0 +1,78 @@
+name: Uji Otomatis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  uji-go:
+    name: Uji Fiber (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Siapkan Go sesuai go.mod
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: latihan-fiber/go.mod
+          cache-dependency-path: latihan-fiber/go.sum
+      - name: Unduh dependensi
+        working-directory: latihan-fiber
+        run: go mod download
+      - name: Analisis statis
+        working-directory: latihan-fiber
+        run: go vet ./...
+      - name: Jalankan pengujian dengan cakupan
+        working-directory: latihan-fiber
+        run: go test ./... -cover
+
+  uji-laravel:
+    name: Uji Laravel (PHP)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Siapkan PHP dan ekstensi
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: ctype, curl, dom, fileinfo, mbstring, openssl, pdo_sqlite, sqlite3, tokenizer, xml
+          coverage: none
+      - name: Pasang dependensi Composer
+        working-directory: latihan-laravel
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Jalankan pengujian Laravel
+        working-directory: latihan-laravel
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test
+
+  uji-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend-pemweb2/package-lock.json
+      - name: Pasang dependensi
+        working-directory: frontend-pemweb2
+        run: npm ci
+      - name: Lint
+        working-directory: frontend-pemweb2
+        run: npm run lint
+      - name: Build produksi
+        working-directory: frontend-pemweb2
+        run: npm run build
