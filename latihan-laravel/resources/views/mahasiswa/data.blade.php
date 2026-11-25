@@ -20,7 +20,7 @@
                 <tr>
                     <td>{{ $mahasiswa->nim }}</td>
                     <td>
-                        <a href="{{ route('mahasiswa.show', $mahasiswa) }}">{{ $mahasiswa->nama }}</a>
+                        <a href="{{ route('mahasiswa.data.show', $mahasiswa) }}">{{ $mahasiswa->nama }}</a>
                     </td>
                     <td>{{ $mahasiswa->programStudi->nama }}</td>
                     <td>{{ $mahasiswa->angkatan }}</td>

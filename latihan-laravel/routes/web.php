@@ -52,4 +52,4 @@ Route::get('/mahasiswa-data/top-ipk', [MahasiswaWebController::class,
 'topIpk'])->name('mahasiswa.top-ipk');
 
 Route::get('/mahasiswa-data/{mahasiswa}', [MahasiswaWebController::class,
-'show'])->name('mahasiswa.show');
+'show'])->name('mahasiswa.data.show');

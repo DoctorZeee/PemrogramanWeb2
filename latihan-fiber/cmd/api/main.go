@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"log"
+	"net"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -31,13 +32,13 @@ func main() {
 	app.Use(logger.New())
 	app.Use(middleware.WaktuProses())
 
-	// Modul 9: CORS. Frontend Vite (http://localhost:5173) berbeda origin
-	// dengan API ini (http://localhost:3000); tanpa header Allow-Origin,
-	// peramban memblokir semua respons. Preflight OPTIONS dijawab di sini.
+	// CORS_ALLOWED_ORIGINS mengatur origin frontend. Nilai bawaan untuk
+	// pengembangan adalah http://localhost:5173; produksi harus mengisi domain
+	// frontend yang benar. Preflight OPTIONS dijawab oleh middleware ini.
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:5173"},
+		AllowOrigins: konf.CorsAllowedOrigins,
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{"Authorization", "Origin", "Content-Type", "Accept"},
+		AllowHeaders: []string{"Authorization", "Origin", "Content-Type", "Accept", "X-Api-Key"},
 	}))
 	router.Daftarkan(app, konf)
 	app.Use(func(c fiber.Ctx) error {
@@ -46,7 +47,9 @@ func main() {
 			"pesan":  "Endpoint tidak tersedia",
 		})
 	})
-	log.Fatal(app.Listen(":" + konf.Port))
+	alamatDengar := net.JoinHostPort(konf.Host, konf.Port)
+	log.Printf("Fiber API mendengarkan pada %s", alamatDengar)
+	log.Fatal(app.Listen(alamatDengar))
 }
 func penanganGalat(c fiber.Ctx, err error) error {
 	kode := fiber.StatusInternalServerError
@@ -71,7 +74,8 @@ func penanganGalat(c fiber.Ctx, err error) error {
 func periksaRahasia(konf config.Konfigurasi) {
 	lemah := len(konf.JwtSecret) < 32 ||
 		konf.JwtSecret == "rahasia-bawaan" ||
-		strings.HasPrefix(konf.JwtSecret, "ubah-nilai")
+		strings.HasPrefix(konf.JwtSecret, "ubah-nilai") ||
+		strings.HasPrefix(konf.JwtSecret, "GANTI")
 	if !lemah {
 		return
 	}

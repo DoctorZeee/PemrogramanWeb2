@@ -1,0 +1,731 @@
+openapi: 3.0.3
+info:
+  title: API Praktikum Pemrograman Web II
+  description: >-
+    Kontrak API untuk proyek Pemrograman Web II. Proyek menyediakan backend Laravel 13
+    dan Fiber v3. Beberapa rute serta format autentikasi berbeda antarbackend; perbedaan
+    ditandai pada deskripsi operasi dan ekstensi x-available-on.
+  version: 1.0.0
+  contact:
+    name: Praktikum Pemrograman Web II - Teknik Komputer UNSOED
+servers:
+  - url: http://127.0.0.1:8000/api
+    description: Laravel 13 - server pengembangan
+  - url: http://127.0.0.1:3000/api
+    description: Fiber v3 - server pengembangan
+
+tags:
+  - name: Status
+  - name: Autentikasi
+  - name: Mahasiswa
+  - name: Mata Kuliah
+  - name: Program Studi
+
+paths:
+  /status:
+    get:
+      tags: [Status]
+      summary: Memeriksa status layanan Fiber
+      description: Endpoint khusus Fiber dan membutuhkan header X-Api-Key.
+      x-available-on: [fiber]
+      security:
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Layanan Fiber aktif.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PesanSukses'
+              example:
+                sukses: true
+                pesan: API Fiber aktif
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+
+  /auth/register:
+    post:
+      tags: [Autentikasi]
+      summary: Registrasi pengguna Laravel
+      description: Pengguna baru selalu dibuat dengan peran mahasiswa.
+      x-available-on: [laravel]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrasiLaravel'
+      responses:
+        '201':
+          description: Registrasi berhasil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsAutentikasiLaravel'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+
+  /auth/registrasi:
+    post:
+      tags: [Autentikasi]
+      summary: Registrasi pengguna Fiber
+      description: Pengguna baru selalu dibuat dengan peran mahasiswa.
+      x-available-on: [fiber]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrasiFiber'
+      responses:
+        '201':
+          description: Registrasi berhasil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsSukses'
+        '400':
+          $ref: '#/components/responses/PermintaanBuruk'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+
+  /auth/login:
+    post:
+      tags: [Autentikasi]
+      summary: Login pengguna
+      description: >-
+        Rute tersedia pada kedua backend. Laravel menggunakan properti password,
+        sedangkan Fiber menggunakan kata_sandi. Format respons token juga berbeda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/LoginLaravel'
+                - $ref: '#/components/schemas/LoginFiber'
+      responses:
+        '200':
+          description: Kredensial benar dan token diterbitkan.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ResponsAutentikasiLaravel'
+                  - $ref: '#/components/schemas/ResponsSukses'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+        '429':
+          description: Batas percobaan login Laravel terlampaui (5 percobaan per menit per IP).
+
+  /auth/profil:
+    get:
+      tags: [Autentikasi]
+      summary: Menampilkan profil pengguna yang sedang login
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profil pengguna ditemukan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsSukses'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+
+  /auth/password:
+    put:
+      tags: [Autentikasi]
+      summary: Mengubah kata sandi akun Laravel
+      x-available-on: [laravel]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password_lama, password, password_confirmation]
+              properties:
+                password_lama: { type: string, format: password }
+                password: { type: string, format: password, minLength: 8 }
+                password_confirmation: { type: string, format: password }
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+
+  /auth/segarkan:
+    post:
+      tags: [Autentikasi]
+      summary: Memperbarui token Fiber
+      description: Token lama dicabut dan digantikan token baru.
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+
+  /auth/logout:
+    post:
+      tags: [Autentikasi]
+      summary: Mengakhiri sesi pada token aktif
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+
+  /auth/logout-semua:
+    post:
+      tags: [Autentikasi]
+      summary: Mencabut seluruh token pengguna Laravel
+      x-available-on: [laravel]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+
+  /mahasiswa:
+    get:
+      tags: [Mahasiswa]
+      summary: Menampilkan daftar mahasiswa
+      description: >-
+        Mendukung pencarian, filter, pengurutan, pemilihan kolom, dan pagination.
+        Parameter halaman/pencarian disesuaikan dengan backend yang dipilih.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cari
+          in: query
+          description: Pencarian berdasarkan nama atau NIM.
+          schema: { type: string }
+        - name: angkatan
+          in: query
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
+        - name: per_halaman
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - name: halaman
+          in: query
+          description: Digunakan oleh Fiber.
+          x-available-on: [fiber]
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: program_studi_id
+          in: query
+          description: Filter program studi pada Laravel.
+          x-available-on: [laravel]
+          schema: { type: integer, minimum: 1 }
+        - name: urut
+          in: query
+          description: Kolom urut Laravel (nama, nim, angkatan, ipk).
+          x-available-on: [laravel]
+          schema: { type: string, enum: [nama, nim, angkatan, ipk], default: nama }
+        - name: arah
+          in: query
+          description: Arah pengurutan Laravel.
+          x-available-on: [laravel]
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - name: fields
+          in: query
+          description: Daftar kolom respons Laravel yang dipisahkan koma.
+          x-available-on: [laravel]
+          schema: { type: string, example: id,nim,nama,email }
+      responses:
+        '200':
+          description: Daftar mahasiswa berhasil diambil.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/DaftarMahasiswaLaravel'
+                  - $ref: '#/components/schemas/DaftarMahasiswaFiber'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+    post:
+      tags: [Mahasiswa]
+      summary: Menambahkan data mahasiswa
+      description: Membutuhkan token dengan kemampuan mahasiswa:tulis. Fiber juga mengizinkan peran admin atau dosen.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InputMahasiswa'
+      responses:
+        '201':
+          description: Data mahasiswa berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsMahasiswa'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+
+  /mahasiswa/terhapus:
+    get:
+      tags: [Mahasiswa]
+      summary: Menampilkan mahasiswa yang sudah dihapus
+      description: Hanya tersedia pada Fiber dan hanya dapat diakses admin.
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: halaman
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_halaman
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+
+  /mahasiswa/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Mahasiswa]
+      summary: Menampilkan detail mahasiswa
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Data mahasiswa ditemukan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsMahasiswa'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+    put:
+      tags: [Mahasiswa]
+      summary: Memperbarui data mahasiswa
+      description: Laravel menerima field parsial; Fiber mengharuskan seluruh field wajib pada PUT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerbaruiMahasiswa'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+    patch:
+      tags: [Mahasiswa]
+      summary: Memperbarui sebagian data mahasiswa
+      description: Tersedia pada Laravel.
+      x-available-on: [laravel]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerbaruiMahasiswa'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+    delete:
+      tags: [Mahasiswa]
+      summary: Menghapus data mahasiswa
+      description: Membutuhkan peran admin. Laravel menghapus permanen; Fiber menggunakan soft delete.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+
+  /mahasiswa/{id}/pulihkan:
+    put:
+      tags: [Mahasiswa]
+      summary: Memulihkan mahasiswa yang di-soft delete
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+
+  /matakuliah:
+    get:
+      tags: [Mata Kuliah]
+      summary: Menampilkan daftar mata kuliah
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cari
+          in: query
+          schema: { type: string }
+        - name: semester
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 8 }
+        - name: halaman
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_halaman
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+    post:
+      tags: [Mata Kuliah]
+      summary: Menambahkan mata kuliah
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InputMataKuliah'
+      responses:
+        '201':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+
+  /matakuliah/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Mata Kuliah]
+      summary: Menampilkan detail mata kuliah
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+    put:
+      tags: [Mata Kuliah]
+      summary: Memperbarui mata kuliah
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InputMataKuliah'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+        '422':
+          $ref: '#/components/responses/ValidasiGagal'
+    delete:
+      tags: [Mata Kuliah]
+      summary: Menghapus mata kuliah
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+        '403':
+          $ref: '#/components/responses/TidakBerwenang'
+        '404':
+          $ref: '#/components/responses/TidakDitemukan'
+
+  /program-studi:
+    get:
+      tags: [Program Studi]
+      summary: Menampilkan program studi dan jumlah mahasiswa
+      x-available-on: [fiber]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/OperasiBerhasil'
+        '401':
+          $ref: '#/components/responses/TidakTerautentikasi'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token Sanctum pada Laravel atau JWT pada Fiber.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  schemas:
+    PesanSukses:
+      type: object
+      properties:
+        sukses: { type: boolean, example: true }
+        pesan: { type: string, example: Operasi berhasil }
+    ResponsSukses:
+      type: object
+      properties:
+        sukses: { type: boolean, example: true }
+        pesan: { type: string }
+        data: { type: object, additionalProperties: true }
+    ResponsGalat:
+      type: object
+      description: Bentuk galat API; Laravel dapat menggunakan message, sedangkan Fiber menggunakan sukses dan pesan.
+      properties:
+        sukses: { type: boolean, example: false }
+        pesan: { type: string, example: Token tidak valid atau belum dikirim }
+        message: { type: string, example: Data tidak ditemukan }
+    InputMahasiswa:
+      type: object
+      required: [program_studi_id, nim, nama, email, angkatan]
+      properties:
+        program_studi_id: { type: integer, example: 1 }
+        nim: { type: string, maxLength: 20, example: H1H024043 }
+        nama: { type: string, minLength: 3, maxLength: 100, example: Dimas Rafif Zaidan }
+        email: { type: string, format: email, maxLength: 100, example: dimas@example.com }
+        angkatan: { type: integer, minimum: 2000, maximum: 2100, example: 2024 }
+        ipk: { type: number, format: float, minimum: 0, maximum: 4, example: 3.55 }
+        aktif: { type: boolean, default: true, example: true }
+    PerbaruiMahasiswa:
+      type: object
+      minProperties: 1
+      properties:
+        program_studi_id: { type: integer, minimum: 1 }
+        nim: { type: string, maxLength: 20 }
+        nama: { type: string, minLength: 3, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 100 }
+        angkatan: { type: integer, minimum: 2000, maximum: 2100 }
+        ipk: { type: number, minimum: 0, maximum: 4 }
+        aktif: { type: boolean }
+    Mahasiswa:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        nim: { type: string, example: H1H024043 }
+        nama: { type: string, example: Dimas Rafif Zaidan }
+        email: { type: string, format: email }
+        angkatan: { type: integer, example: 2024 }
+        ipk: { type: number, format: float, example: 3.55 }
+        aktif: { type: boolean, example: true }
+        program_studi:
+          type: object
+          properties:
+            id: { type: integer }
+            kode: { type: string }
+            nama: { type: string }
+    ResponsMahasiswa:
+      type: object
+      properties:
+        sukses: { type: boolean, example: true }
+        pesan: { type: string }
+        data:
+          $ref: '#/components/schemas/Mahasiswa'
+    DaftarMahasiswaLaravel:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Mahasiswa' }
+        meta:
+          type: object
+          properties:
+            current_page: { type: integer }
+            last_page: { type: integer }
+            per_page: { type: integer }
+            total: { type: integer }
+    DaftarMahasiswaFiber:
+      type: object
+      properties:
+        sukses: { type: boolean }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Mahasiswa' }
+        meta:
+          type: object
+          properties:
+            halaman: { type: integer }
+            per_halaman: { type: integer }
+            total: { type: integer }
+            total_halaman: { type: integer }
+    InputMataKuliah:
+      type: object
+      required: [kode, nama, sks, semester]
+      properties:
+        kode: { type: string, minLength: 2, maxLength: 10, example: TK101 }
+        nama: { type: string, minLength: 3, maxLength: 100, example: Pemrograman Web II }
+        sks: { type: integer, minimum: 1, maximum: 6, example: 3 }
+        semester: { type: integer, minimum: 1, maximum: 8, example: 5 }
+    RegistrasiLaravel:
+      type: object
+      required: [name, email, password, password_confirmation]
+      properties:
+        name: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password }
+    RegistrasiFiber:
+      type: object
+      required: [nama, email, kata_sandi]
+      properties:
+        nama: { type: string, minLength: 3, maxLength: 100 }
+        email: { type: string, format: email }
+        kata_sandi: { type: string, format: password, minLength: 8, maxLength: 72 }
+    LoginLaravel:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    LoginFiber:
+      type: object
+      required: [email, kata_sandi]
+      properties:
+        email: { type: string, format: email }
+        kata_sandi: { type: string, format: password }
+    ResponsAutentikasiLaravel:
+      type: object
+      properties:
+        sukses: { type: boolean }
+        pesan: { type: string }
+        data:
+          type: object
+          properties:
+            pengguna: { type: object, additionalProperties: true }
+            token: { type: string }
+    ResponsValidasi:
+      type: object
+      properties:
+        sukses: { type: boolean, example: false }
+        pesan: { type: string }
+        galat:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              pesan: { type: string }
+  responses:
+    TidakTerautentikasi:
+      description: Token atau API key tidak tersedia atau tidak valid.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResponsGalat' }
+    TidakBerwenang:
+      description: Pengguna tidak memiliki kemampuan atau peran yang diperlukan.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResponsGalat' }
+    TidakDitemukan:
+      description: Data tidak ditemukan.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResponsGalat' }
+    PermintaanBuruk:
+      description: Format permintaan tidak valid.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResponsGalat' }
+    ValidasiGagal:
+      description: Satu atau lebih data tidak lolos validasi.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/ResponsValidasi'
+              - type: object
+                properties:
+                  message: { type: string }
+                  errors: { type: object, additionalProperties: { type: array, items: { type: string } } }
+    OperasiBerhasil:
+      description: Operasi berhasil.
+      content:
+        application/json:
+          schema:
+            anyOf:
+              - $ref: '#/components/schemas/ResponsSukses'
+              - $ref: '#/components/schemas/ResponsMahasiswa'

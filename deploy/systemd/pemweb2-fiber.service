@@ -1,0 +1,28 @@
+[Unit]
+Description=Pemweb2 Fiber API
+Wants=network-online.target
+After=network-online.target mariadb.service mysql.service
+
+[Service]
+Type=simple
+User=pemweb2
+Group=pemweb2
+WorkingDirectory=/var/www/pemweb2/latihan-fiber
+EnvironmentFile=/etc/pemweb2/fiber.env
+ExecStart=/var/www/pemweb2/latihan-fiber/bin/api
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

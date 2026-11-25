@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { simpanMahasiswa, ambilDaftarProgramStudi } from '../api/layananMahasiswa'
 import { ambilPesanGalat, ambilGalatField } from '../api/petaData'
 
+const TAHUN_INI = new Date().getFullYear()
+
 export default function FormulirMahasiswa() {
   const navigasi = useNavigate()
   const [programStudi, setProgramStudi] = useState([])
@@ -11,7 +13,7 @@ export default function FormulirMahasiswa() {
     nim: '',
     nama: '',
     email: '',
-    angkatan: new Date().getFullYear(),
+    angkatan: TAHUN_INI, // DIUBAH: memakai konstanta
     ipk: '',
     aktif: true,
   })

@@ -12,7 +12,9 @@ class UpdateMahasiswaRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        // Otorisasi dilakukan oleh middleware auth:sanctum dan ability:mahasiswa:tulis
+        // pada routes/api.php. FormRequest hanya menangani validasi payload.
+        return true;
     }
 
     /**
